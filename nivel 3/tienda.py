@@ -57,7 +57,7 @@ class Tienda:
                 break
             else:
                 print("Por favor, ingrese una opción válida (s/n).")
-
+        total_final = 0    
         while True:
             self.mostrar_menu()
             seleccion_categoria = input("Seleccione una categoría (1-3) o 0 para finalizar: ")
@@ -73,17 +73,22 @@ class Tienda:
 
             kit_seleccionado, tipo_manga, talla_seleccionada = self.seleccionar_producto(categoria)
 
-            cantidad = self.obtener_cantidad()
+            cantidad = self.obtener_cantidad(self.inventario.obtener_stock(categoria, tipo_manga, kit_seleccionado, talla_seleccionada))
 
             if not self.validar_stock(categoria, tipo_manga, kit_seleccionado, talla_seleccionada, cantidad):
                 continue
 
-            personalizar = input("¿Desea personalizar con el número de un jugador? (s/n): ").lower()
+            while True:
+                personalizar = input("¿Desea personalizar con el número de un jugador? (s/n): ").lower()
+                if personalizar in ['s', 'n']:
+                    break
+                else:
+                    print("Por favor, ingrese una opción válida (s/n).")
 
             subtotal = self.calcular_subtotal(tipo_manga, cantidad, personalizar)
             descuento = self.obtener_descuento(es_socio)
             total = self.calcular_precio_total(subtotal, descuento)
-
+            total_final += total
             self.actualizar_inventario(categoria, tipo_manga, kit_seleccionado, talla_seleccionada, cantidad)
             self.actualizar_carrito(categoria, tipo_manga, kit_seleccionado, talla_seleccionada, cantidad)
 
@@ -96,6 +101,7 @@ class Tienda:
 
         print("\nGracias por su compra!")
         self.mostrar_resumen_total()
+        print(f"El total de la compra es de: {total_final}")
 
     def mostrar_menu(self):
         print("\nMenú de selección:")
@@ -111,12 +117,10 @@ class Tienda:
     def seleccionar_producto(self, categoria):
         tipo_manga = self.obtener_tipo_manga()
         kits_disponibles = list(self.inventario.obtener_kits(categoria, tipo_manga))
-        seleccion_kit = self.obtener_seleccion("kit", kits_disponibles)
-
-        
+        seleccion_kit = self.obtener_seleccion("kit", kits_disponibles, categoria, tipo_manga)
 
         tallas_disponibles = list(self.inventario.obtener_tallas(categoria, tipo_manga, seleccion_kit))
-        seleccion_talla = self.obtener_seleccion("talla", tallas_disponibles)
+        seleccion_talla = self.obtener_seleccion("talla", tallas_disponibles, categoria, tipo_manga, seleccion_kit)
 
         return seleccion_kit, tipo_manga, seleccion_talla
 
@@ -128,11 +132,14 @@ class Tienda:
         else:
             return opcion.replace('_', ' ').capitalize()
 
-    def obtener_seleccion(self, tipo, opciones):
+    def obtener_seleccion(self, tipo, opciones, categoria=None, tipo_manga=None, kit=None):
         while True:
             print(f"\nSeleccione un {tipo}:")
             for i, opcion in enumerate(opciones, start=1):
-                print(f"{i}. {self.convertir_opcion(tipo, opcion)}")
+                if categoria is not None and tipo_manga is not None and kit is not None:
+                    print(f"{i}. {self.convertir_opcion(tipo, opcion)} (Disponible: {self.inventario.obtener_stock(categoria, tipo_manga, kit, opcion)})")
+                else:
+                    print(f"{i}. {self.convertir_opcion(tipo, opcion)}")
             
             seleccion = input(f"Seleccione un {tipo} (1-{len(opciones)}): ")
 
@@ -156,13 +163,13 @@ class Tienda:
 
             return 'corta' if seleccion_manga == '1' else 'larga'
 
-    def obtener_cantidad(self):
+    def obtener_cantidad(self, stock_disponible):
         while True:
-            print("\nIngrese la cantidad de camisetas que desea comprar:")
+            print(f"\nIngrese la cantidad de camisetas que desea comprar (Disponible: {stock_disponible}):")
             cantidad = input("Cantidad: ")
 
-            if not cantidad.isdigit() or int(cantidad) <= 0:
-                print("Por favor, ingrese una cantidad válida.")
+            if not cantidad.isdigit() or int(cantidad) <= 0 or int(cantidad) > stock_disponible:
+                print("Por favor, ingrese una cantidad válida y dentro del stock disponible.")
                 continue
 
             return int(cantidad)
@@ -177,7 +184,7 @@ class Tienda:
     def calcular_subtotal(self, tipo_manga, cantidad, personalizar):
         return (
             cantidad * self.inventario.obtener_precio_manga(tipo_manga) +
-            self.inventario.obtener_precio_personalizacion(personalizar)
+            self.inventario.obtener_precio_personalizacion(personalizar, cantidad)
         )
 
     def obtener_descuento(self, es_socio):
@@ -199,6 +206,7 @@ class Tienda:
 
     def mostrar_resumen_total(self):
         self.carrito.mostrar_carrito()
+
 
 class Inventario:
     def __init__(self):
@@ -257,8 +265,8 @@ class Inventario:
     def obtener_precio_manga(self, tipo_manga):
         return 100 if tipo_manga == 'corta' else 120
 
-    def obtener_precio_personalizacion(self, personalizar):
-        return 25 if personalizar == 's' else 0
+    def obtener_precio_personalizacion(self, personalizar, cantidad):
+        return 25 * cantidad if personalizar == 's' else 0
 
     def obtener_descuento(self, es_socio):
         return 0.2 if es_socio else 0.0
@@ -307,3 +315,4 @@ class Carrito:
 # Iniciar la tienda y realizar la compra
 tienda = Tienda()
 tienda.iniciar_compra()
+
